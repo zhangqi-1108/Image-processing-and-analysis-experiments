@@ -1,0 +1,40 @@
+from PIL import Image
+import numpy as np
+
+# 打开图像
+image = Image.open('input_image.jpg')
+
+# 线性点运算
+def linear_transform(pixel):
+    # 例如，将像素值缩放到0-255范围内
+    return int(pixel * (255/np.max(image)))
+
+# 分段线性点运算
+def piecewise_linear_transform(pixel):
+    # 定义不同区间的映射函数
+    if pixel < 100:
+        return int(pixel * (255/100))
+    elif pixel < 200:
+        return int((pixel-100) * (255/100))
+    else:
+        return int((pixel-200) * (255/55))
+
+# 非线性点运算
+def nonlinear_transform(pixel):
+    # 例如，将像素值进行幂函数变换
+    return int(255 * (pixel/255) ** 2)
+
+# 应用点运算函数到每个像素
+output_image_linear = image.point(linear_transform)
+output_image_piecewise_linear = image.point(piecewise_linear_transform)
+output_image_nonlinear = image.point(nonlinear_transform)
+
+# 显示和保存结果
+output_image_linear.show()
+output_image_linear.save('output_image_linear.jpg')
+
+output_image_piecewise_linear.show()
+output_image_piecewise_linear.save('output_image_piecewise_linear.jpg')
+
+output_image_nonlinear.show()
+output_image_nonlinear.save('output_image_nonlinear.jpg')
