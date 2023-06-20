@@ -1,0 +1,86 @@
+import numpy as np
+import cv2
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
+
+# 加载原始图像
+image = cv2.imread('input_image.jpg', cv2.IMREAD_GRAYSCALE)
+
+# 编码函数
+def dpcm_encode(image, quantization_levels):
+    height, width = image.shape
+    encoded_image = np.zeros((height, width), dtype=np.int32)
+    prediction_error = np.zeros((height, width), dtype=np.int32)
+
+    for y in range(height):
+        for x in range(width):
+            if x == 0 and y == 0:
+                # 第一个像素，直接使用原始像素值
+                prediction = image[y, x]
+            elif x == 0:
+                # 第一列像素，使用上方像素作为预测值
+                prediction = image[y - 1, x]
+            else:
+                # 其他像素，使用左方像素作为预测值
+                prediction = image[y, x - 1]
+
+            # 计算预测误差
+            prediction_error[y, x] = image[y, x] - prediction
+
+            # 量化预测误差
+            encoded_image[y, x] = np.round(prediction_error[y, x] / quantization_levels) * quantization_levels
+
+    return encoded_image
+
+# 解码函数
+def dpcm_decode(encoded_image, quantization_levels):
+    height, width = encoded_image.shape
+    decoded_image = np.zeros((height, width), dtype=np.uint8)
+    prediction_error = np.zeros((height, width), dtype=np.int32)
+
+    for y in range(height):
+        for x in range(width):
+            if x == 0 and y == 0:
+                # 第一个像素，直接使用编码值作为预测误差
+                prediction_error[y, x] = encoded_image[y, x]
+            elif x == 0:
+                # 第一列像素，使用上方像素作为预测值
+                prediction = decoded_image[y - 1, x]
+                prediction_error[y, x] = encoded_image[y, x]
+            else:
+                # 其他像素，使用左方像素作为预测值
+                prediction = decoded_image[y, x - 1]
+                prediction_error[y, x] = encoded_image[y, x]
+
+            # 进行反量化得到解码像素值
+            decoded_image[y, x] = prediction + prediction_error[y, x]
+
+    return decoded_image
+
+# 不同量化器的重建图像列表
+quantization_levels_list = [1, 2, 4, 8]
+reconstructed_images = []
+
+# 编码和解码，并计算PSNR和SSIM值
+for quantization_levels in quantization_levels_list:
+    # 编码
+    encoded_image = dpcm_encode(image, quantization_levels)
+
+    # 解码
+    decoded_image = dpcm_decode(encoded_image, quantization_levels)
+
+    # 计算PSNR和SSIM值
+    psnr = peak_signal_noise_ratio(image, decoded_image)
+    ssim = structural_similarity(image, decoded_image)
+
+    # 存储重建图像和评估指标
+    reconstructed_images.append(decoded_image)
+    print(f'Quantization Levels: {quantization_levels}, PSNR: {psnr:.2f}, SSIM: {ssim:.4f}')
+
+# 显示原始图像和重建图像
+titles = ['Original Image'] + [f'Quantization Levels: {ql}' for ql in quantization_levels_list]
+images = [image] + reconstructed_images
+
+for title, img in zip(titles, images):
+    cv2.imshow(title, img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
